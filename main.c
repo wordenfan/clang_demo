@@ -272,5 +272,5 @@ int main ()
     pthread_test(); //167虚拟机 编译:gcc -o main main.c -pthread,然后执行./main =====
 
 //============================= 范例四：线程死锁及robust接管 ==========================
-    phread_main();
+    phread_deadlock_test();
 }

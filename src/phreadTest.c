@@ -73,7 +73,7 @@ static void *second_thread(void *ptr)
     pthread_exit(NULL);
 }
 
-int phread_main()
+int phread_deadlock_test()
 {
     pthread_t thr;
     pthread_mutexattr_t attr;
