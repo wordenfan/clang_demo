@@ -15,6 +15,11 @@
 #define N 1
 #define PIPE_PATH "/root/work/demoA/"
 
+pthread_t tid[3];
+int sum = 0;
+pthread_mutex_t sum_lock = PTHREAD_MUTEX_INITIALIZER; /* 静态初始化互斥量 */
+pthread_cond_t cond_sum_ready = PTHREAD_COND_INITIALIZER; /* 静态初始化条件变量 */
+
 typedef struct edge_node_t
 {
     const char * name;
@@ -245,7 +250,6 @@ void realloc_ptr_array_no_param(){
     printf("\n name:%s",dd[2].name);
 
 }
-//=====================================================
 
 void realloc_ptr_array_with_param_test(){
     struct course *d;
@@ -257,6 +261,54 @@ void realloc_ptr_array_with_param_test(){
     printf("\n 2 name:%s",d[2].name);
 }
 
+//======================================
+void * t1t2(void *arg) {
+    int i;
+    long id = (long)arg;
+    for (i = 0; i < 60; i++) {
+        pthread_mutex_lock(&sum_lock); //使用互斥量保护临界变量
+        sum++;
+        printf("t%ld: read sum value = %d\n", id + 1 , sum);
+        pthread_mutex_unlock(&sum_lock);
+        if (sum >= 100){
+            pthread_cond_signal(&cond_sum_ready); //发送条件通知，唤醒等待线程
+        }
+    }
+    return NULL;
+}
+void * t3(void *arg) {
+    pthread_mutex_lock(&sum_lock);
+    while(sum < 100 ) // 不满足条件将一直等待
+    {
+        printf("Waiting the signal...\n");
+        pthread_cond_wait(&cond_sum_ready, &sum_lock); //等待条件满足
+    }
+
+    sum = 0;
+    printf("t3: clear sum value\n");
+    pthread_mutex_unlock(&sum_lock);
+    return NULL;
+}
+
+int pthread_cond_wait_test(){
+    int err;
+    long i;
+    for (i = 0; i < 2; i++) {
+        err = pthread_create(&(tid[i]), NULL, &t1t2, (void *)i);//创建线程1、2
+        if (err != 0) {
+            printf("Can't create thread :[%s]", strerror(err));
+        }
+    }
+    err = pthread_create(&(tid[2]), NULL, &t3, NULL); //创建线程3
+    if (err != 0){
+        printf("Can't create thread :[%s]", strerror(err));
+    }
+    for (i = 0; i < 3; i++){
+        pthread_join(tid[i], NULL);
+    }
+    return 0;
+}
+
 int main ()
 {
 //============================= 范例一：malloc、calloc 动态分配内存 ================
@@ -265,12 +317,15 @@ int main ()
     return 0;
 
 //============================= 范例二：realloc 结构体数组传参 ================
-    realloc_ptr_array_with_param_test();    //函数传参
-    realloc_ptr_array_no_param();   //不传参
+//    realloc_ptr_array_with_param_test();    //函数传参
+//    realloc_ptr_array_no_param();   //不传参
 
-//============================= 范例三：通过文件实现多线程通讯 ==========================
-    pthread_test(); //167虚拟机 编译:gcc -o main main.c -pthread,然后执行./main =====
+//============================= 范例三：通过文件实现多线程通讯，pthread_join()  ==========================
+//    pthread_test(); //167虚拟机 编译:gcc -o main main.c -pthread,然后执行./main =====
 
 //============================= 范例四：线程死锁及robust接管 ==========================
-    phread_deadlock_test();
+//    phread_deadlock_test();
+
+//============================= 范例五：线程死锁及robust接管 pthread_cond_wait() ==========================
+//    pthread_cond_wait_test();
 }
